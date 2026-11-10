@@ -31,12 +31,17 @@ body::before{content:"";position:fixed;inset:0;background:conic-gradient(from 0d
 @keyframes drop{0%{transform:scale(1.4)}100%{transform:scale(1)}}
 .c.prev{background:color-mix(in srgb,var(--c) 45%,transparent);box-shadow:inset 0 0 0 2px var(--c)}
 .c.will.f{animation:pulse .5s infinite alternate}
+.c.will.f,.c.will.prev{background:linear-gradient(145deg,#fff,var(--c) 85%);box-shadow:0 0 0 2px #fff,0 0 16px 3px var(--c);z-index:2}
 .c.will.prev{background:var(--c);animation:pulse .4s infinite alternate}
 @keyframes pulse{to{transform:scale(.9)}}
 .c.boom{animation:boom .4s ease-in forwards;z-index:3;will-change:transform}
 @keyframes boom{0%{transform:scale(1.1)}50%{transform:scale(1.3) rotate(20deg);opacity:1}100%{transform:scale(0) rotate(70deg);opacity:0}}
 #pop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;font-size:56px;font-weight:800;white-space:nowrap;text-align:center;line-height:1;z-index:10;opacity:0;background:linear-gradient(#fff,var(--gold) 60%,#ff6b3d);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px #ff6b3d)}
 #pop.go{animation:pop 1s ease-out}
+#combo{position:absolute;left:50%;top:-36px;transform:translateX(-50%);font-weight:800;font-size:24px;color:#ffd23f;text-shadow:0 0 14px #ff6b3d;opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .25s}
+#combo.on{opacity:1;animation:cmb .4s}
+@keyframes cmb{40%{transform:translateX(-50%) scale(1.5)}}
+#pop .cmb{font-size:26px}
 #pop small{display:block;font-size:30px}
 @keyframes pop{0%{opacity:0;transform:translate(-50%,-30%) scale(.3) rotate(-8deg)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.25) rotate(3deg)}70%{opacity:1;transform:translate(-50%,-60%) scale(1)}100%{opacity:0;transform:translate(-50%,-110%) scale(1)}}
 .shake{animation:shake .45s}
@@ -70,14 +75,14 @@ button:active{transform:translateY(5px);box-shadow:0 1px 0 #b8265f}
     <div class="stat"><small>Score</small><b id="score">0</b></div>
     <div class="stat" id="best"><small>Best</small><b id="bestv">0</b></div>
   </div>
-  <div id="boardWrap"><div id="board"></div><div id="pop"></div></div>
+  <div id="boardWrap"><div id="board"></div><div id="pop"></div><div id="combo"></div></div>
   <div id="tray"></div>
 </div>
 <div id="ghost"></div>
 <div id="over"><h1>Game over</h1><div id="nb">New best!</div><div class="big" id="fs">0</div><p>Final score</p><button id="again">Play again</button></div>
 <script>
 const N=8,COLORS=['#ff4d8d','#ffb020','#35e0a1','#3db8ff','#a46bff','#ff6b3d'];
-const SHAPES=[[[1]],[[1,1]],[[1,1,1]],[[1,1,1,1]],[[1,1,1,1,1]],[[1,1],[1,1]],[[1,1,1],[1,1,1],[1,1,1]],[[1,0],[1,0],[1,1]],[[1,1,1],[1,0,0],[1,0,0]],[[0,1,0],[1,1,1]],[[1,1,0],[0,1,1]],[[1,1,1],[1,1,1]],[[1,0],[1,1]]];
+const SHAPES=[[[1]],[[1,1]],[[1,1,1]],[[1,1,1,1]],[[1,1,1,1,1]],[[1,1],[1,1]],[[1,1,1],[1,1,1],[1,1,1]],[[1,0],[1,0],[1,1]],[[1,1,1],[1,0,0],[1,0,0]],[[0,1,0],[1,1,1]],[[1,1,0],[0,1,1]],[[1,1,1],[1,1,1]],[[1,0],[1,1]],[[0,1,1],[1,1,0]],[[0,1],[0,1],[1,1]]];
 const $=s=>document.querySelector(s);
 const board=$('#board'),tray=$('#tray'),ghost=$('#ghost'),pop=$('#pop'),app=$('#app');
 let grid,pieces,score,best=0,cells=[],busy=false,drag=null,streak=0;
@@ -104,7 +109,7 @@ function lines(g){const rows=[],cols=[];for(let i=0;i<N;i++){let a=true,b=true;f
 
 function start(ev,i){if(busy||!pieces[i])return;ev.preventDefault();const p=pieces[i];const rect=board.getBoundingClientRect();const step=(board.clientWidth-12+3)/N;
 const size=step-3;ghost.innerHTML='';const e=pieceEl(p,size,3);ghost.style.gridTemplateColumns='';ghost.style.display='block';ghost.appendChild(e);
-drag={i,p,step,size,w:p.m[0].length*step-3,h:p.m.length*step-3,rect,pos:null,sx:ev.clientX,sy:ev.clientY};const Dc=Math.max(160,ev.clientY-(rect.top+rect.height/2));drag.G=Math.max(.3,(Dc*.45-70)/(Dc*.55));
+drag={i,p,step,size,w:p.m[0].length*step-3,h:p.m.length*step-3,rect,pos:null,sx:ev.clientX,sy:ev.clientY};const Dc=Math.max(160,ev.clientY-(rect.top+rect.height/2));drag.G=.6;
 tray.children[i].firstChild&&(tray.children[i].firstChild.style.opacity=.25);
 vib(8);move(ev);
 window.addEventListener('pointermove',move);window.addEventListener('pointerup',end);window.addEventListener('pointercancel',cancel)}
@@ -128,13 +133,13 @@ render();placed.forEach(k=>{cells[k].classList.add('drop');const r=cells[k].getB
 pieces[d.i]=null;let gain=n;
 const L=lines(grid);const set=new Set();L.rows.forEach(r=>{for(let j=0;j<N;j++)set.add(r*N+j)});L.cols.forEach(c=>{for(let j=0;j<N;j++)set.add(j*N+c)});
 const cnt=L.rows.length+L.cols.length;
-if(cnt){streak++;gain+=cnt*10*cnt+(streak-1)*10;busy=true;
+if(cnt){streak++;setCombo();gain+=cnt*10*cnt*streak;busy=true;
  [...set].forEach((k,idx)=>{const c=cells[k];const col=grid[k];setTimeout(()=>{c.classList.add('boom');const r=c.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,col,3,8);},idx*10)});
- const words=['','NICE!','GREAT!','AWESOME!','AMAZING!','INSANE!'];text(words[Math.min(cnt,5)]||'INSANE!','+'+gain,cnt);
+ text(pickWord(cnt),'+'+gain,cnt,streak);
  if(cnt>=2){app.classList.remove('shake');void app.offsetWidth;app.classList.add('shake');vib([30,30,60])}
  flash(cnt);
  setTimeout(()=>{set.forEach(k=>grid[k]=null);render();busy=false;after()},set.size*10+420)
-}else{streak=0;after()}
+}else{streak=0;setCombo();after()}
 addScore(gain)}
 
 function after(){if(pieces.every(p=>!p)){pieces=[randPiece(),randPiece(),randPiece()];redrawTray()}else{redrawTray();}
@@ -145,7 +150,10 @@ function addScore(g){const t=score+g;const el=$('#score');const from=score;score
 el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');
 if(score>best){best=score;$('#bestv').textContent=best;try{localStorage.setItem('nbp-best',best)}catch(e){}}}
 
-function text(w,s,cnt){pop.innerHTML=w+'<small>'+s+'</small>';pop.style.fontSize=(44+cnt*6)+'px';pop.classList.remove('go');void pop.offsetWidth;pop.classList.add('go')}
+const WORDS=[[],['NICE!','GREAT!'],['AWESOME!','WOW!','HELL YA!'],['AMAZING!','WOW!','DAMN!','HELL YA!'],['INSANE!','DAMN!','FUCK!','WOW!','HELL YA!']];let lastW='';
+function pickWord(cnt){const t=Math.min(4,cnt+(streak>=3?1:0));const pool=WORDS[t].filter(w=>w!==lastW);return lastW=pool[Math.random()*pool.length|0]}
+function setCombo(){const e=$('#combo');if(streak>=2){e.textContent='\u{1F525} COMBO \u00d7'+streak;e.classList.remove('on');void e.offsetWidth;e.classList.add('on')}else e.classList.remove('on')}
+function text(w,s,cnt,combo){pop.innerHTML=w+'<small>'+s+'</small>'+(combo>1?'<small class="cmb">COMBO \u00d7'+combo+'</small>':'');pop.style.fontSize=(44+cnt*6)+'px';pop.classList.remove('go');void pop.offsetWidth;pop.classList.add('go')}
 
 /* particles */
 const cv=$('#fx'),cx=cv.getContext('2d');let P=[],running=false,dpr=Math.min(devicePixelRatio||1,2);
@@ -160,7 +168,7 @@ function gameOver(){$('#fs').textContent=score;$('#nb').style.display=(score>0&&
 try{localStorage.setItem('nbp-prev',best)}catch(e){}
 $('#over').classList.add('on');vib([80,40,120]);for(let i=0;i<6;i++)setTimeout(()=>burst(innerWidth/2,innerHeight/2,COLORS[i],10,10),i*120)}
 
-function newGame(){grid=Array(N*N).fill(null);score=0;streak=0;busy=false;$('#score').textContent=0;$('#over').classList.remove('on');render();fill()}
+function newGame(){grid=Array(N*N).fill(null);score=0;streak=0;setCombo();busy=false;$('#score').textContent=0;$('#over').classList.remove('on');render();fill()}
 $('#again').addEventListener('click',newGame);
 addEventListener('contextmenu',e=>e.preventDefault());
 newGame();
